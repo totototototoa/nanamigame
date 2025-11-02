@@ -11,7 +11,7 @@ html,body{
   margin:0;height:100%;
   background:#000;color:#0ff;font-family:'Courier New',monospace;
   overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding-top: env(safe-area-inset-top, 0);           /* 顶部安全区（iOS 刘海） */
+  padding-top: env(safe-area-inset-top, 0);
   overscroll-behavior: contain;
 }
 h1#titleText{
@@ -56,9 +56,9 @@ canvas#next{
 .btn{
   background:rgba(0,255,255,0.1);border:1px solid #0ff;color:#0ff;border-radius:6px;
   padding:8px 10px;font-size:1.2rem;box-shadow:0 0 8px #0ff;min-width:36px;
-    touch-action: none;
-  user-select: none;         /* 新增：标准属性，修掉警告 */
-  -webkit-user-select: none; /* iOS Safari 兼容 */
+  touch-action: none;
+  user-select: none;         /* 标准属性 */
+  -webkit-user-select: none; /* iOS Safari */
   -webkit-touch-callout: none;
 }
 .btn:active{background:rgba(255,255,255,0.2);box-shadow:0 0 16px #ff0;}
@@ -190,38 +190,31 @@ const modalOverlay=document.getElementById('modalOverlay'), modal=document.getEl
 const modalTitle=document.getElementById('modalTitle'), modalText=document.getElementById('modalText'), modalActions=document.getElementById('modalActions');
 const closeHint=document.getElementById('closeHint');
 
-/* === 自适应缩放（考虑 safe-area 与真实视口） === */
+/* === 自适应缩放 === */
 function getViewportSize() {
   const vv = window.visualViewport;
-  return {
-    w: Math.floor((vv ? vv.width  : window.innerWidth)),
-    h: Math.floor((vv ? vv.height : window.innerHeight))
-  };
+  return { w: Math.floor((vv ? vv.width  : window.innerWidth)),
+           h: Math.floor((vv ? vv.height : window.innerHeight)) };
 }
 function applyScale(){
   const titleEl = document.getElementById('titleText');
   const scoreElWrap = document.getElementById('scorePanel');
   const {w:vw, h:vh} = getViewportSize();
 
-  // 临时去掉缩放拿到真实宽高
   frameEl.style.transform = 'none';
   const rect = frameEl.getBoundingClientRect();
 
-  // 可用区域（减去标题/分数/安全区）
   const titleH = titleEl ? titleEl.getBoundingClientRect().height : 0;
   const scoreH = scoreElWrap ? scoreElWrap.getBoundingClientRect().height : 0;
   const availW = Math.max(220, vw - 16);
   const availH = Math.max(260, vh - 16 - titleH - scoreH);
 
-  // 允许更小的缩放以适配小屏
   const scaleW = availW / rect.width;
   const scaleH = availH / rect.height;
   const scale  = Math.max(0.40, Math.min(1, Math.min(scaleW, scaleH)));
 
   frameEl.style.transformOrigin = 'top center';
   frameEl.style.transform = `scale(${scale})`;
-
-  // 回到顶部，避免标题被地址栏/刘海压住
   window.scrollTo(0, 0);
 }
 window.addEventListener('orientationchange', applyScale, {passive:true});
@@ -289,26 +282,39 @@ function hideModal(){
 function resetGrid(){grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));}
 function drawBlock(x,y,c){ctx.fillStyle=c;ctx.fillRect(x*BLOCK+1,y*BLOCK+1,BLOCK-2,BLOCK-2);}
 function newPiece(){
-  const id=Math.floor(Math.random()*SHAPES.length);
-  const base=SHAPES[id].map(r=>r.slice());
-  return {base,shape:base.map(r=>r.slice()),color:COLORS[id],x:3,y:0,rot:0,mir:0};
+  const id = Math.floor(Math.random() * SHAPES.length);
+  const base = SHAPES[id].map(r => r.slice());
+  return {
+    id,                       // 新增：形状编号（0..6）
+    base,
+    shape: base.map(r => r.slice()),
+    color: COLORS[id],
+    x: 3, y: 0,
+    rot: 0, mir: 0,
+    phase: 0                  // 新增：Z/S 专用 0..3 旋转阶段
+  };
 }
 function collide(p=current){
-  for(let y=0;y<p.shape.length;y++)
-    for(let x=0;x<p.shape[y].length;x++)
-      if(p.shape[y][x]){
-        const nx=p.x+x, ny=p.y+y;
-        if(ny>=ROWS||nx<0||nx>=COLS||grid[ny][nx]) return true;
-      }
+  for(let y=0;y<p.shape.length;y++){
+    for(let x=0;x<p.shape[y].length;x++){
+      if(!p.shape[y][x]) continue;
+      const nx = p.x + x, ny = p.y + y;
+      if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+      if (ny >= 0 && grid[ny][nx]) return true;
+    }
+  }
   return false;
 }
 function merge(){ current.shape.forEach((r,y)=>r.forEach((v,x)=>{ if(v) grid[current.y+y][current.x+x]=current.color; })); }
 
-/* ===== 旋转 & 镜像（带墙踢，避免抽动） ===== */
+/* ===== 旋转 & 镜像（带墙踢） ===== */
 function rot90(s){return s[0].map((_,i)=>s.map(r=>r[i])).reverse();}
 function mirrorH(s){return s.map(r=>r.slice().reverse());}
 function buildShape(base,rot,mir){ let s=base.map(r=>r.slice()); for(let i=0;i<rot;i++) s=rot90(s); if(mir) s=mirrorH(s); return s; }
-const KICKS = [[0,0],[1,0],[-1,0],[2,0],[-2,0]];
+const KICKS = [
+  [0,0],[1,0],[-1,0],[2,0],[-2,0],
+  [0,-1],[0,-2],[1,-1],[-1,-1]
+];
 function tryTransform(newRot,newMir){
   const prev={x:current.x,y:current.y,shape:current.shape,rot:current.rot,mir:current.mir};
   current.shape=buildShape(current.base,newRot,newMir);
@@ -320,16 +326,44 @@ function tryTransform(newRot,newMir){
 }
 function doRotate(){
   if(!canPlay()) return;
-  if(paused||locked||showingFace)return;
-  withCooldown(()=>{ let r=(current.rot+1)&3; tryTransform(r,current.mir); });
-}
-function doMirror(){
-  if(!canPlay()) return;
-  if(paused||locked||showingFace)return;
-  withCooldown(()=>{ tryTransform(current.rot, current.mir?0:1); });
+  if(paused||locked||showingFace) return;
+
+  // Z(6)/S(5)：把镜像编进旋转循环，形成 4 阶段
+  if (current.id === 5 || current.id === 6) {
+    const map = [[0,0],[1,0],[0,1],[1,1]]; // [rot, mir]
+    let phase = (current.phase ?? 0) + 1;
+    if (phase > 3) phase = 0;
+    const [r,m] = map[phase];
+    if (tryTransform(r, m)) current.phase = phase;
+    return;
+  }
+
+  // 其他形状按正常 0→1→2→3
+  withCooldown(()=>{
+    let r = (current.rot + 1) & 3;
+    tryTransform(r, current.mir);
+  });
 }
 
-/* ===== 绘制（防御性） ===== */
+/* ✅ 新增：镜像函数（第三步） */
+function doMirror(){
+  if(!canPlay()) return;
+  if(paused||locked||showingFace) return;
+
+  withCooldown(()=>{
+    const newMir = current.mir ? 0 : 1;
+    if (tryTransform(current.rot, newMir)) {
+      // 若是 Z/S，把当前 (rot,mir) 映射回 phase，保持 4 相位循环正确
+      if (current.id === 5 || current.id === 6) {
+        const map = [[0,0],[1,0],[0,1],[1,1]];
+        const found = map.findIndex(([r,m]) => r===current.rot && m===current.mir);
+        current.phase = (found >= 0 ? found : 0);
+      }
+    }
+  });
+}
+
+/* ===== 绘制 ===== */
 function draw(){
   ctx.fillStyle='#111';ctx.fillRect(0,0,game.width,game.height);
   if(grid) grid.forEach((r,y)=>r.forEach((v,x)=>v&&drawBlock(x,y,v)));
@@ -361,7 +395,6 @@ function drop(){
     current.y--;
     merge();clearLines();
 
-    // 方块落地：若处于“哼哼”保持，恢复原样（本局只点一次）
     if (giftBannerArmed && score >= 50 && score < 100) {
       giftBannerArmed = false;
       giftBannerConsumed = true;
@@ -424,26 +457,20 @@ bombBtn.onclick=()=>{
   score+=50; refreshBombVisibility(); updateScore(); draw();
 };
 
-/* ===== 修正版触控/键盘输入（点击=一步；长按连发；含 click 兜底） ===== */
+/* ===== 触控/键盘输入（点击一步；长按连发） ===== */
 function pressRepeat(el, onFire, {initialDelay=250, repeatEvery=120} = {}) {
   let timer = null, repeater = null;
-
   const fireOnce = () => withCooldown(onFire);
-
   const start = (ev) => {
     ev.preventDefault(); ev.stopPropagation();
-    fireOnce(); // 先来一次
-    timer = setTimeout(() => {
-      repeater = setInterval(fireOnce, repeatEvery);
-    }, initialDelay);
+    fireOnce();
+    timer = setTimeout(() => { repeater = setInterval(fireOnce, repeatEvery); }, initialDelay);
   };
-
   const end = (ev) => {
     if (ev) { ev.preventDefault(); ev.stopPropagation(); }
     clearTimeout(timer); timer = null;
     if (repeater) { clearInterval(repeater); repeater = null; }
   };
-
   el.style.touchAction = 'none';
   el.addEventListener('pointerdown', start, {passive:false});
   el.addEventListener('pointerup', end, {passive:false});
@@ -451,7 +478,6 @@ function pressRepeat(el, onFire, {initialDelay=250, repeatEvery=120} = {}) {
   el.addEventListener('pointercancel', end, {passive:false});
   el.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); fireOnce(); }, {passive:false});
 }
-
 const btnLeft=document.getElementById('left');
 const btnRight=document.getElementById('right');
 const btnDown=document.getElementById('down');
@@ -459,6 +485,12 @@ const btnUp=document.getElementById('up');
 pressRepeat(btnLeft,  ()=>{ if(!canPlay()) return; if(paused||locked||showingFace)return; current.x--; if(collide()) current.x++; });
 pressRepeat(btnRight, ()=>{ if(!canPlay()) return; if(paused||locked||showingFace)return; current.x++; if(collide()) current.x--; });
 pressRepeat(btnDown,  ()=>{ if(!canPlay()) return; if(paused||locked||showingFace)return; drop(); });
+// ▲ 向上按钮：只在解锁后可用，防止越界
+pressRepeat(btnUp, ()=>{
+  if(!canPlay()) return;
+  if(paused || locked || showingFace || !unlockedUp) return;
+  current.y = Math.max(0, current.y - 1);
+});
 
 /* 旋转按钮：短按=旋转；长按≥350ms=镜像一次 */
 const rotateBtn=document.getElementById('rotate');
@@ -475,17 +507,6 @@ rotateBtn.addEventListener('pointerup', e=>{
 },{passive:false});
 rotateBtn.addEventListener('pointercancel', ()=>{ clearTimeout(rotTimer); });
 
-/* 键盘 */
-function hardUp(){ if(!canPlay()) return; if(paused||locked||showingFace)return; if(unlockedUp)current.y--; }
-document.addEventListener('keydown',e=>{
-  if(!canPlay()) return;
-  if(paused||locked||showingFace)return;
-  if(e.key==='ArrowLeft'){ withCooldown(()=>{ current.x--; if(collide()) current.x++; }); }
-  else if(e.key==='ArrowRight'){ withCooldown(()=>{ current.x++; if(collide()) current.x--; }); }
-  else if(e.key==='ArrowDown'){ withCooldown(()=> drop()); }
-  else if(e.key==='ArrowUp'||e.key===' '){ withCooldown(()=> doRotate()); }
-});
-
 /* ===== 暂停与重新开始 ===== */
 pauseBtn.onclick=()=>{ if(!canPlay()) return; paused=!paused;pauseBtn.textContent=paused?'▶ 继续':'⏸ 暂停';if(!paused)update();};
 restartBtn.onclick = ()=>{ nextRound(); };
@@ -499,7 +520,6 @@ const CRY_MASK = [
   "0000000000","0000000000","0011001100","0011001100","0100000010",
   "0000110000","0001001000","0000000000","0000000000"
 ];
-
 function drawFaceMask(mask, color){
   const rowStart = Math.max(0, ROWS - mask.length);
   resetGrid();
@@ -512,7 +532,7 @@ function drawFaceMask(mask, color){
 
 /* —— 笑脸预览：1.8s —— */
 function showSmilePreview(usedTen){
-  gameReady = false;               // 显示表情期间禁止输入
+  gameReady = false;
   drawFaceMask(SMILE_MASK,'#ff8c00'); // 南瓜橙
   setTimeout(()=>{
     clearModalQueue(); modalOverlay.style.display='none'; modalOpen=false;
@@ -626,7 +646,7 @@ function resetUIStable(){
 function nextRound(){
   if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
   clearModalQueue(); modalOverlay.style.display='none'; modalOpen=false;
-  gameReady = false;                       // 切局前先关闭输入
+  gameReady = false;
 
   if(!titleLocked){
     if (round === 2 && !sessionStorage.getItem('title2Held')) {
@@ -647,7 +667,7 @@ function nextRound(){
   current=newPiece(); nextPiece=newPiece(); drawNext(); draw();
   updateScore(); refreshBombVisibility(); resetUIStable();
 
-  gameReady = true;                        // 棋子就位后再开放输入
+  gameReady = true;
   lastTime=performance.now(); dropCounter=0; update();
 }
 function update(t=0){
@@ -659,12 +679,12 @@ function initGame(){
   changeTitleByRound();changeGlowColor();resetGrid();score=0;
   current=newPiece();nextPiece=newPiece();drawNext();updateLeaderboard();refreshBombVisibility();update();updateScore();
   applyScale();
-  gameReady = true;                        // 初始化完成 → 开启输入
+  gameReady = true;
 }
 sessionStorage.removeItem('title2Held');
 sessionStorage.removeItem('ultraPlayShown');
 function startGame(){
-  gameReady = false;                       // 动画期间关闭输入
+  gameReady = false;
   sessionStorage.removeItem('title2Held');
   sessionStorage.removeItem('ultraPlayShown');
   startBtn.classList.add('fadeOut');
