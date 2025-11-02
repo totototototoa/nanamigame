@@ -400,21 +400,33 @@ bombBtn.onclick=()=>{
   score+=50; refreshBombVisibility(); updateScore(); draw();
 };
 
-/* ===== 触控 & 键盘（点一下=一步；长按=0.25s后 120ms/步） ===== */
-function pressRepeat(el, onFire, {initialDelay=250, repeatEvery=120}={}){
-  let timer=null, repeater=null, fired=false;
-  const start=(ev)=>{ ev.preventDefault(); ev.stopPropagation();
-    fired=false;
-    timer=setTimeout(()=>{ withCooldown(onFire); fired=true; repeater=setInterval(()=>withCooldown(onFire), repeatEvery); }, initialDelay);
+/* ===== 修正版触控/键盘输入（兼容手机点击） ===== */
+function pressRepeat(el, onFire, {initialDelay=250, repeatEvery=120} = {}) {
+  let timer = null, repeater = null, fired = false;
+  const start = (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    fired = false;
+    // 立即触发一次
+    withCooldown(onFire);
+    // 延迟触发连续模式
+    timer = setTimeout(() => {
+      fired = true;
+      repeater = setInterval(() => withCooldown(onFire), repeatEvery);
+    }, initialDelay);
   };
-  const end=(ev)=>{ if(ev){ev.preventDefault(); ev.stopPropagation();}
-    clearTimeout(timer); timer=null;
-    if(repeater){ clearInterval(repeater); repeater=null; }
-    if(!fired){ withCooldown(onFire); }
+  const end = (ev) => {
+    if (ev) { ev.preventDefault(); ev.stopPropagation(); }
+    clearTimeout(timer);
+    if (repeater) clearInterval(repeater);
+    timer = null;
+    repeater = null;
   };
-  el.addEventListener('pointerdown', start, {passive:false});
-  window.addEventListener('pointerup', end, {passive:false});
-  window.addEventListener('pointercancel', end, {passive:false});
+  el.style.touchAction = "none"; // 关键：防止移动端吞 pointerdown
+  el.addEventListener("pointerdown", start, { passive: false });
+  el.addEventListener("pointerup", end, { passive: false });
+  el.addEventListener("pointerleave", end, { passive: false });
+  el.addEventListener("pointercancel", end, { passive: false });
 }
 const btnLeft=document.getElementById('left');
 const btnRight=document.getElementById('right');
