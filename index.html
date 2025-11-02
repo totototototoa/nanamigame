@@ -514,7 +514,7 @@ restartBtn.onclick = ()=>{ nextRound(); };
 /* ===== 表情蒙版（0=绘制，1=镂空） ===== */
 const SMILE_MASK = [
   "0000000000","0000000000","0011001100","0101001010",
-  "0000000000","0100110010","0011111100","0000110000","0000000000"
+  "0000000000","0100110010","0011111100","0001111000","0000000000"
 ];
 const CRY_MASK = [
   "0000000000","0000000000","0011001100","0011001100","0100000010",
@@ -538,7 +538,7 @@ function showSmilePreview(usedTen){
     clearModalQueue(); modalOverlay.style.display='none'; modalOpen=false;
     enqueueModal({
       title:'提示',
-      text: usedTen ? '哈哈！没想到这里有隐藏捷径吧！' : '连这个bug都被你发现了吗，不愧是最厉害的程序员！',
+      text: usedTen ? '哈哈！没想到这里有隐藏捷径吧！' : '这是这个游戏的唯一关卡，恭喜通关！最厉害的程序员！',
       buttons:[{label: usedTen ? '这其实是我测试时留的后手！' : '继续', onClick:()=> nextRound()}]
     });
     smileEver=true; sessionStorage.setItem('smileEver','1'); updateLeaderboard();
@@ -575,7 +575,7 @@ function proceedGameOver(){
   }
   enqueueModal({
     title:'提示',
-    text:'没想到SAI会在这种地方失败！',
+    text:'来！继续！',
     buttons:[
       {label:'继续', onClick:()=> nextRound()},
       {label:'离开', onClick:()=> startLeaveFlow()}
@@ -597,7 +597,7 @@ function gameOver(){
 }
 function startLeaveFlow(){ askLeaveStep(0); }
 function askLeaveStep(step){
-  const texts = ['真的要离开吗？','真的真的要离开吗？','最后一次确认：不和我继续玩了吗？'];
+  const texts = ['真的要离开吗？','真的真的要离开吗？','最后一次确认：真的不和我继续玩了吗？'];
   if(step>=3){
     titleLocked = true; sessionStorage.setItem('titleLocked','1');
     clearModalQueue(); showCryPreview(); return;
