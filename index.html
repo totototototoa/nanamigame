@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>哈哈！SAI！你破除不了我的记录的！</title>
+<style>
+:root{ --frameW:322px; }
+*{box-sizing:border-box}
+html,body{
+  margin:0;height:100%;
+  background:#000;color:#0ff;font-family:'Courier New',monospace;
+  overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+h1#titleText{
+  margin:10px 0 8px;font-size:1.8rem;letter-spacing:.5px;
+  animation:neon 1.5s ease-in-out infinite alternate; text-align:center; width:100%;
+}
+@keyframes neon{
+  from{color:#0ff;text-shadow:0 0 10px #0ff,0 0 24px #0ff,0 0 32px #ff0;}
+  to  {color:#ff0;text-shadow:0 0  8px #f0f,0 0 20px #0ff,0 0 30px #ff0;}
+}
+.score{
+  margin:6px 0 8px;
+  font-size:0.95rem;
+  text-shadow:0 0 6px #0ff;
+  width:var(--frameW); text-align:center;
+}
+#gameArea{display:none;flex-direction:column;align-items:center;width:100%;}
+#frame{display:flex;flex-direction:column;align-items:center;gap:8px;width:var(--frameW); transform-origin: top center;}
+#container{
+  display:grid;grid-template-columns:200px 110px;grid-template-rows:auto auto;
+  column-gap:12px;row-gap:10px;align-items:start;justify-content:center;
+  width:var(--frameW);
+}
+canvas#game{
+  grid-column:1;grid-row:1;background:#111;border-radius:8px;box-shadow:0 0 18px var(--glow,#0ff);
+}
+.sidebar{grid-column:2;grid-row:1 / span 2;display:flex;flex-direction:column;align-items:center;}
+canvas#next{
+  background:#111;width:75px;height:75px;border-radius:6px;box-shadow:0 0 10px var(--glow,#0ff);
+}
+#pauseButton,#restartButton,#bombButton{
+  display:block;margin:6px auto;background:rgba(255,255,255,0.1);
+  border:1px solid #0ff;border-radius:6px;color:#0ff;font-size:.9rem;padding:6px 12px;box-shadow:0 0 8px #0ff;
+  width:100px;text-align:center;
+}
+#restartButton{display:none;}
+#bombButton{display:none;}
+.controls{
+  grid-column:1;grid-row:2;display:flex;justify-content:center;align-items:center;
+  width:200px;gap:10px;margin:0 auto;
+}
+.btn{
+  background:rgba(0,255,255,0.1);border:1px solid #0ff;color:#0ff;border-radius:6px;
+  padding:8px 10px;font-size:1.2rem;box-shadow:0 0 8px #0ff;min-width:36px;touch-action:none;
+}
+.btn:active{background:rgba(255,255,255,0.2);box-shadow:0 0 16px #ff0;}
+.hrwrap{width:var(--frameW);margin:6px auto 0;border-top:1px solid #0ff;opacity:.8;}
+#leaderboard{width:var(--frameW);margin:6px auto 0;text-align:left;}
+#leaderboard h2{text-align:center;margin:4px 0;text-shadow:0 0 6px #0ff;font-size:1rem;}
+#startBtn{
+  background:rgba(0,255,255,0.15);border:1px solid #0ff;color:#0ff;border-radius:8px;
+  padding:12px 24px;font-size:1.2rem;box-shadow:0 0 12px #0ff;cursor:pointer;transition:all .3s;
+}
+#startBtn:hover{background:rgba(255,255,255,0.1);transform:scale(1.05);}
+.fadeIn{animation:fadeIn .8s ease forwards;}@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.fadeOut{animation:fadeOut .8s ease forwards;}@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+#modalOverlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);
+  display:none;align-items:center;justify-content:center;z-index:10;
+}
+#modal{
+  width:min(85vw,340px);background:rgba(10,20,25,.6);border:1px solid #0ff;border-radius:10px;
+  box-shadow:0 0 20px #0ff,inset 0 0 10px rgba(0,255,255,.2);padding:14px;color:#0ff;text-align:center;
+  transform:translateY(10px);opacity:0;transition:all .25s ease;
+}
+#modal.show{transform:translateY(0);opacity:1;}
+#modal h3{margin:.2rem 0 .6rem;font-size:1rem;text-shadow:0 0 6px #0ff;}
+#modal .actions{display:flex;gap:10px;justify-content:center;margin-top:10px;flex-wrap:wrap;}
+#modal .actions button{
+  background:rgba(0,255,255,.12);border:1px solid #0ff;color:#0ff;border-radius:8px;padding:6px 12px;cursor:pointer;
+  box-shadow:0 0 8px #0ff;
+}
+/* 关闭失败时覆盖提示 */
+#closeHint{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000c;color:#0ff;z-index:9999}
+#closeHint .box{border:1px solid #0ff;border-radius:12px;padding:16px 20px;background:#021319cc;box-shadow:0 0 18px #0ff;}
+#closeHint a{color:#0ff;text-decoration:underline}
+/* 背景星空 */
+#starfield{position:fixed;inset:0;pointer-events:none;z-index:-1;}
+/* 容器允许溢出以显示阴影 */
+#gameArea{ overflow: visible; }
+</style>
+</head>
+<body>
+<canvas id="starfield"></canvas>
+
+<h1 id="titleText">哈哈！SAI！你破除不了我的记录的！</h1>
+
+<div id="scorePanel" class="score">
+  分数：<span id="score">0</span>　最高：<span id="high">0</span>
+</div>
+
+<button id="startBtn">Start</button>
+
+<div id="gameArea">
+  <div id="frame">
+    <div id="container">
+      <canvas id="game" width="200" height="400"></canvas>
+
+      <div class="sidebar">
+        <canvas id="next" width="75" height="75"></canvas>
+        <button id="pauseButton">⏸ 暂停</button>
+        <button id="restartButton">重新开始</button>
+        <button id="bombButton">💣</button>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="left">◀</button>
+        <button class="btn" id="rotate">⟳</button>
+        <button class="btn" id="right">▶</button>
+        <button class="btn" id="down">▼</button>
+        <button class="btn" id="up" style="display:none;">▲</button>
+      </div>
+    </div>
+
+    <div class="hrwrap"></div>
+    <div id="leaderboard">
+      <h2>🏆 排行榜</h2>
+      <div id="rankList"></div>
+    </div>
+  </div>
+</div>
+
+<div id="modalOverlay"><div id="modal">
+  <h3 id="modalTitle">提示</h3>
+  <div id="modalText" style="font-size:.95rem;line-height:1.4;"></div>
+  <div class="actions" id="modalActions"></div>
+</div></div>
+
+<div id="closeHint">
+  <div class="box">
+    <div style="margin-bottom:10px;">浏览器阻止了自动关闭。你可以：</div>
+    <div>① 直接手动关闭标签页；② 或点击 <a href="about:blank" target="_self">这里</a> 退到空白页。</div>
+  </div>
+</div>
+
+<script>
+/* ===== 背景星空 ===== */
+const starCanvas=document.getElementById('starfield');
+const sctx=starCanvas.getContext('2d'); let stars=[], lastStarT=performance.now();
+function resizeStars(){ const dpr=window.devicePixelRatio||1;
+  starCanvas.width=Math.floor(innerWidth*dpr); starCanvas.height=Math.floor(innerHeight*dpr);
+  sctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function initStars(){
+  const COLORS=['#0ff','#ff0','#f0f']; const N=120;
+  stars=Array.from({length:N},(_,i)=>({x:Math.random()*innerWidth,y:Math.random()*innerHeight,
+    vx:(i%3?0.04:0.02)*(Math.random()<0.5?-1:1), vy:(i%3?0.04:0.02)*(Math.random()<0.5?-1:1),
+    r:0.8+(i%3)*0.4+Math.random()*0.5, color:COLORS[Math.floor(Math.random()*COLORS.length)],
+    phase:Math.random()*Math.PI*2, tw:0.8+Math.random()*0.6}));
+}
+function tickStars(now){
+  const dt=Math.min(40,now-lastStarT); lastStarT=now; sctx.clearRect(0,0,innerWidth,innerHeight);
+  for(const s of stars){
+    s.x+=s.vx*dt; s.y+=s.vy*dt;
+    if(s.x<0) s.x=innerWidth; else if(s.x>innerWidth) s.x=0;
+    if(s.y<0) s.y=innerHeight; else if(s.y>innerHeight) s.y=0;
+    const a=0.35+0.65*(0.5+0.5*Math.sin(now*0.002+s.phase))*s.tw;
+    sctx.globalAlpha=Math.max(0.35,Math.min(1,a));
+    sctx.beginPath(); sctx.fillStyle=s.color; sctx.arc(s.x,s.y,s.r,0,Math.PI*2); sctx.fill();
+  } requestAnimationFrame(tickStars);
+}
+addEventListener('resize',()=>{resizeStars();initStars();});
+resizeStars();initStars();requestAnimationFrame(tickStars);
+
+/* ====== 游戏全局 ====== */
+const startBtn=document.getElementById('startBtn');
+const title=document.getElementById('titleText');
+const gameArea=document.getElementById('gameArea');
+const game=document.getElementById('game'),ctx=game.getContext('2d');
+const nextCanvas=document.getElementById('next'),nctx=nextCanvas.getContext('2d');
+const pauseBtn=document.getElementById('pauseButton'),bombBtn=document.getElementById('bombButton'),
+      upBtn=document.getElementById('up'), restartBtn=document.getElementById('restartButton');
+const rankList=document.getElementById('rankList');
+const modalOverlay=document.getElementById('modalOverlay'), modal=document.getElementById('modal');
+const modalTitle=document.getElementById('modalTitle'), modalText=document.getElementById('modalText'), modalActions=document.getElementById('modalActions');
+const closeHint=document.getElementById('closeHint');
+
+/* === PATCH: 根据屏宽自适应缩放，避免右侧被裁 === */
+function applyScale(){
+  const base = 322;       // 整体设计宽
+  const margin = 16;      // 左右留白
+  const scale = Math.min(1, (window.innerWidth - margin) / base);
+  const frame = document.getElementById('frame');
+  frame.style.transform = `scale(${Math.max(0.6, scale)})`;
+}
+window.addEventListener('resize', applyScale);
+
+/* 分数栏 */
+let high = parseInt(localStorage.getItem('highscore') || '0');
+const scoreEl = document.getElementById('score'); const highEl  = document.getElementById('high'); highEl.textContent = high;
+
+const COLS=10,ROWS=20,BLOCK=20;
+const COLORS=['#0ff','#f0f','#ff0','#0f0','#f80','#08f','#f44'];
+const SHAPES=[ [[1,1,1,1]], [[1,1],[1,1]], [[0,1,0],[1,1,1]],
+               [[1,0,0],[1,1,1]], [[0,0,1],[1,1,1]], [[1,1,0],[0,1,1]], [[0,1,1],[1,1,0]] ];
+
+let grid,current,nextPiece,score=0;
+let round=parseInt(sessionStorage.getItem('round')||'1');
+let paused=false,locked=false,dropCounter=0,lastTime=0,dropInterval=500;
+let unlockedUp=false,bombUses=0,maxBomb=10;
+let smileEver = sessionStorage.getItem('smileEver')==='1';
+let smileShownThisRound=false;
+let showingFace=false;
+let titleLocked = sessionStorage.getItem('titleLocked')==='1';
+let firstFail = sessionStorage.getItem('firstFail')==='1';
+
+/* 送礼文案保持标记：出现后保持到下一块落地 */
+let giftBannerArmed=false;
+let giftBannerConsumed=false; // 本局已消耗，不再重复点亮
+
+/* ===== 单实例 RAF ===== */
+let rafId=null;
+
+/* ===== 模态队列 ===== */
+const modalQueue=[]; let modalOpen=false;
+function clearModalQueue(){ modalQueue.length=0; }
+function enqueueModal(def){ modalQueue.push(def); if(!modalOpen) showNextModal(); }
+function showNextModal(){
+  if(modalOpen) return; const def = modalQueue.shift(); if(!def) return; modalOpen=true;
+  modalTitle.textContent=def.title||'提示'; modalText.innerHTML=def.text||''; modalActions.innerHTML='';
+  (def.buttons||[{label:'确定'}]).forEach(b=>{
+    const btn=document.createElement('button'); btn.className='btn'; btn.textContent=b.label||'确定';
+    btn.onclick=()=>{ hideModal(); if(b.onClick) b.onClick(); }; modalActions.appendChild(btn);
+  });
+  modalOverlay.style.display='flex'; requestAnimationFrame(()=>modal.classList.add('show'));
+}
+function hideModal(){
+  modal.classList.remove('show');
+  setTimeout(()=>{ modalOverlay.style.display='none'; modalOpen=false; showNextModal(); },200);
+}
+
+/* ===== 网格与方块 ===== */
+function resetGrid(){grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));}
+function drawBlock(x,y,c){ctx.fillStyle=c;ctx.fillRect(x*BLOCK+1,y*BLOCK+1,BLOCK-2,BLOCK-2);}
+function newPiece(){
+  const id=Math.floor(Math.random()*SHAPES.length);
+  const base=SHAPES[id].map(r=>r.slice());
+  return {base,shape:base.map(r=>r.slice()),color:COLORS[id],x:3,y:0,rot:0,mir:0};
+}
+function collide(p=current){
+  for(let y=0;y<p.shape.length;y++)
+    for(let x=0;x<p.shape[y].length;x++)
+      if(p.shape[y][x]){
+        const nx=p.x+x, ny=p.y+y;
+        if(ny>=ROWS||nx<0||nx>=COLS||grid[ny][nx]) return true;
+      }
+  return false;
+}
+function merge(){ current.shape.forEach((r,y)=>r.forEach((v,x)=>{ if(v) grid[current.y+y][current.x+x]=current.color; })); }
+
+/* ===== 旋转 + 镜像（四旋后切镜像；墙踢） ===== */
+function rot90(s){return s[0].map((_,i)=>s.map(r=>r[i])).reverse();}
+function mirrorH(s){return s.map(r=>r.slice().reverse());}
+function buildShape(base,rot,mir){ let s=base.map(r=>r.slice()); for(let i=0;i<rot;i++) s=rot90(s); if(mir) s=mirrorH(s); return s; }
+function tryTransform(newRot,newMir){
+  const prev={x:current.x,y:current.y,shape:current.shape,rot:current.rot,mir:current.mir};
+  current.shape=buildShape(current.base,newRot,newMir);
+  const kicks=[[0,0],[1,0],[-1,0],[0,-1],[2,0],[-2,0],[0,-2]];
+  for(const [dx,dy] of kicks){ current.x=prev.x+dx; current.y=prev.y+dy; if(!collide()){ current.rot=newRot; current.mir=newMir; return true; } }
+  Object.assign(current,prev); return false;
+}
+function doRotate(){
+  if(paused||locked||showingFace)return;
+  let r=(current.rot+1)&3, m=current.mir; if(r===0) m = m?0:1; tryTransform(r,m);
+}
+
+/* ===== 绘制 ===== */
+function draw(){
+  ctx.fillStyle='#111';ctx.fillRect(0,0,game.width,game.height);
+  grid.forEach((r,y)=>r.forEach((v,x)=>v&&drawBlock(x,y,v)));
+  if(!showingFace){ current.shape.forEach((r,y)=>r.forEach((v,x)=>v&&drawBlock(current.x+x,current.y+y,current.color))); }
+}
+function drawNext(){
+  nctx.fillStyle='#111';nctx.fillRect(0,0,75,75);
+  if(showingFace) return;
+  const shap=buildShape(nextPiece.base,0,0);
+  const sw=shap[0].length, sh=shap.length, ox=(75-(sw*16))/2, oy=(75-(sh*16))/2;
+  shap.forEach((r,y)=>r.forEach((v,x)=>{ if(v){nctx.fillStyle=nextPiece.color;nctx.fillRect(ox+x*16+1,oy+y*16+1,14,14);} }));
+}
+
+/* ===== 消行与下落 ===== */
+function clearLines(){
+  let lines=0;
+  for(let y=ROWS-1;y>=0;y--){
+    if(grid[y].every(v=>v!==0)){ grid.splice(y,1);grid.unshift(Array(COLS).fill(0));lines++;y++; }
+  }
+  if(lines>0){ score+=lines*10; updateScore(); }
+}
+
+/* —— 一次性“赠礼文案”逻辑 —— */
+function revertGiftBannerIfNeeded(){
+  if(giftBannerArmed){
+    giftBannerArmed=false;
+    leaderboard[0].name='七海龙水';
+    updateLeaderboard();
+  }
+}
+
+function drop(){
+  if(paused||locked||showingFace)return;
+  current.y++;
+  if(collide()){
+    current.y--;
+    merge();clearLines();
+
+    // —— 在方块真正落地时，若处于“哼哼”保持状态则恢复原样，并标记已消耗 —— 
+    if (giftBannerArmed && score >= 50 && score < 100) {
+      giftBannerArmed = false;
+      giftBannerConsumed = true; // 本局不再重新点亮
+      leaderboard[0].name = '七海龙水';
+      updateLeaderboard();
+    }
+
+    current=nextPiece;nextPiece=newPiece();drawNext();
+    if(collide())return gameOver();
+  }
+  dropCounter=0;
+}
+
+/* ===== 排行榜与计分 ===== */
+let leaderboard=[{name:'七海龙水',score:10},{name:'Player',score:0}];
+function stackedRows(){return grid.filter(r=>r.some(v=>v!==0)).length;}
+function refreshLeaderNameByScore(){
+  // 优先级：哼哼(仅一次) > 炸弹提示 ≥5行 > 默认
+  if (giftBannerArmed) {
+    leaderboard[0].name = '哼哼、你的努力我看到了，这个技能就送给你吧！';
+  } else if (!giftBannerConsumed && score >= 50 && score < 100) {
+    leaderboard[0].name = '哼哼、你的努力我看到了，这个技能就送给你吧！';
+    giftBannerArmed = true; // 落地前保持
+  } else if (stackedRows() >= 5) {
+    leaderboard[0].name = '试试这个不用谢！';
+  } else {
+    leaderboard[0].name = '七海龙水';
+  }
+}
+function updateLeaderboard(){
+  // 更新分数
+  leaderboard[0].score = smileEver ? 1314 : score+10;
+  leaderboard[1].score = score;
+
+  // 显示时按分数降序（>1314 时玩家会显示在第一）
+  const disp = [...leaderboard].sort((a,b)=>b.score-a.score);
+  rankList.innerHTML = disp.map((p,i)=>`${i+1}. ${p.name} - ${p.score}`).join('<br>');
+}
+function updateScore(){
+  scoreEl.textContent = score;
+  if (score > high) { high = score; localStorage.setItem('highscore', String(high)); highEl.textContent = high; }
+  if (score >= 50 && !unlockedUp) { unlockedUp = true; upBtn.style.display = 'inline-block'; }
+  refreshLeaderNameByScore(); updateLeaderboard();
+
+  if(!smileEver && !smileShownThisRound && score>=520){
+    smileShownThisRound=true;
+    const usedTen = bombUses>=10;
+    showSmilePreview(usedTen); // 先展示笑脸，再出对话
+  }
+}
+
+/* ===== 炸弹：≥5行出现，+50，最多10次 ===== */
+function refreshBombVisibility(){
+  const show = (stackedRows()>=5 && bombUses<maxBomb);
+  bombBtn.style.display = show ? 'block' : 'none';
+  refreshLeaderNameByScore(); updateLeaderboard();
+}
+bombBtn.onclick=()=>{
+  if(paused||locked||showingFace)return;
+  if(bombUses>=maxBomb||stackedRows()<5)return;
+  bombUses++;
+  grid.splice(ROWS-5,5); for(let i=0;i<5;i++) grid.unshift(Array(COLS).fill(0));
+  score+=50; refreshBombVisibility(); updateScore(); draw();
+};
+
+/* ===== 触控 & 键盘（长按） ===== */
+function hold(el, fn){ let t=null; const st=()=>{fn();t=setInterval(fn,50)}, ed=()=>{clearInterval(t);t=null};
+  el.addEventListener('touchstart',e=>{e.preventDefault();st()},{passive:false});
+  el.addEventListener('touchend',e=>{e.preventDefault();ed()},{passive:false});
+  el.addEventListener('touchcancel',ed);
+  el.addEventListener('mousedown',st); addEventListener('mouseup',ed);
+}
+function moveLeft(){if(paused||locked||showingFace)return;current.x--;if(collide())current.x++;}
+function moveRight(){if(paused||locked||showingFace)return;current.x++;if(collide())current.x--;}
+function softDrop(){if(paused||locked||showingFace)return;drop();}
+function hardUp(){if(paused||locked||showingFace)return;if(unlockedUp)current.y--;}
+document.getElementById('left').onclick=moveLeft;
+document.getElementById('right').onclick=moveRight;
+document.getElementById('down').onclick=softDrop;
+document.getElementById('rotate').onclick=doRotate;
+document.getElementById('up').onclick=hardUp;
+hold(document.getElementById('left'), moveLeft);
+hold(document.getElementById('right'), moveRight);
+hold(document.getElementById('down'), softDrop);
+hold(document.getElementById('up'),   hardUp);
+hold(document.getElementById('rotate'), ()=>doRotate());
+document.addEventListener('keydown',e=>{
+  if(paused||locked||showingFace)return;
+  if(e.key==='ArrowLeft')moveLeft();
+  else if(e.key==='ArrowRight')moveRight();
+  else if(e.key==='ArrowDown')softDrop();
+  else if(e.key==='ArrowUp'||e.key===' ')doRotate();
+});
+
+/* ===== 暂停与重新开始 ===== */
+pauseBtn.onclick=()=>{paused=!paused;pauseBtn.textContent=paused?'▶ 继续':'⏸ 暂停';if(!paused)update();};
+restartBtn.onclick = ()=>{ nextRound(); };
+
+/* ===== 表情蒙版（0=绘制，1=镂空） ===== */
+const SMILE_MASK = [
+  "0000000000","0000000000","0011001100","0101001010",
+  "0000000000","0100110010","0011111100","0000110000","0000000000"
+];
+const CRY_MASK = [
+  "0000000000","0000000000","0011001100","0011001100","0100000010",
+  "0000110000","0001001000","0000000000","0000000000"
+];
+
+function drawFaceMask(mask, color){
+  const rowStart = Math.max(0, ROWS - mask.length);
+  resetGrid();
+  for(let y=0;y<mask.length;y++)
+    for(let x=0;x<10;x++)
+      if(mask[y][x]==='0') grid[rowStart+y][x]=color; // 0=绘制
+  showingFace=true; locked=true; bombBtn.style.display='none'; restartBtn.style.display='block';
+  draw(); nctx.clearRect(0,0,75,75);
+}
+
+/* —— 笑脸预览：统一 1.8s —— */
+function showSmilePreview(usedTen){
+  drawFaceMask(SMILE_MASK,'#ff8c00'); // 南瓜橙
+  setTimeout(()=>{
+    clearModalQueue(); modalOverlay.style.display='none'; modalOpen=false;
+    enqueueModal({
+      title:'提示',
+      text: usedTen ? '哈哈！没想到这里有隐藏捷径吧！' : '连这个bug都被你发现了吗，不愧是最厉害的程序员！',
+      buttons:[{label: usedTen ? '这其实是我测试时留的后手！' : '继续', onClick:()=> nextRound()}]
+    });
+    smileEver=true; sessionStorage.setItem('smileEver','1'); updateLeaderboard();
+  },1800);
+}
+
+/* —— 哭脸预览：1.8s —— */
+function showCryPreview(){
+  drawFaceMask(CRY_MASK,'#002fa7'); // 克莱因蓝
+  setTimeout(()=>{
+    clearModalQueue(); modalOverlay.style.display='none'; modalOpen=false;
+    enqueueModal({
+      title:'提示',
+      text:'这样啊……',
+      buttons:[
+        {label:'（犹豫）', onClick:()=> nextRound()},
+        {label:'（坚持离开）', onClick:()=> tryClose()}
+      ]
+    });
+  },1800);
+}
+
+/* ===== 失败 & 离开逻辑 + 新彩蛋 ===== */
+
+/* 把原 gameOver 主流程抽出来，供彩蛋结束后继续走 */
+function proceedGameOver(){
+  if (!firstFail) {
+    firstFail = true; sessionStorage.setItem('firstFail','1');
+    enqueueModal({
+      title:'提示', text:'还要继续吗？',
+      buttons:[{label:'是', onClick:()=> nextRound()},
+               {label:'是', onClick:()=> nextRound()}]
+    });
+    return;
+  }
+  enqueueModal({
+    title:'提示',
+    text:'没想到SAI会在这种地方失败！',
+    buttons:[
+      {label:'继续', onClick:()=> nextRound()},
+      {label:'离开', onClick:()=> startLeaveFlow()}
+    ]
+  });
+}
+
+/* 新彩蛋：分数 > 1314，本次打开只出现一次；在正常询问前先出现 */
+function gameOver(){
+  locked = true; bombBtn.style.display='none';
+
+  if (score > 1314 && sessionStorage.getItem('ultraPlayShown') !== '1') {
+    sessionStorage.setItem('ultraPlayShown','1');
+    enqueueModal({
+      title:'提示',
+      text:'SAI能陪我玩这么久，我真的很高兴',
+      buttons:[{label:'嗯', onClick:()=> proceedGameOver()}]
+    });
+    return;
+  }
+
+  proceedGameOver();
+}
+
+function startLeaveFlow(){ askLeaveStep(0); }
+function askLeaveStep(step){
+  const texts = ['真的要离开吗？','真的真的要离开吗？','最后一次确认：不和我继续玩了吗？'];
+  if(step>=3){
+    titleLocked = true; sessionStorage.setItem('titleLocked','1');
+    clearModalQueue(); showCryPreview(); return;
+  }
+  enqueueModal({
+    title:'提示', text:texts[step],
+    buttons:[
+      {label:'是', onClick:()=> askLeaveStep(step+1) },
+      {label:'否', onClick:()=> { clearModalQueue(); nextRound(); } }
+    ]
+  });
+}
+
+/* ===== 关闭页面的稳妥实现 ===== */
+function tryClose(){
+  window.open('','_self'); window.close();
+  setTimeout(()=>{
+    try{ if(!document.hidden){ location.href='about:blank'; } }catch(e){}
+    setTimeout(()=>{ document.getElementById('closeHint').style.display='flex'; },250);
+  },150);
+}
+
+/* ===== 回合/标题/启动 ===== */
+function changeGlowColor(){
+  const c=['#0ff','#f0f','#ff0','#0f0','#08f','#f44'];
+  document.documentElement.style.setProperty('--glow',c[Math.floor(Math.random()*c.length)]);
+}
+function changeTitleByRound(){
+  if(titleLocked){ title.textContent='一直一直和我玩吧SAI！'; applyScale(); return; }
+  const t=[
+    "哈哈！SAI！你破除不了我的记录的！",
+    "来吧！SAI！继续挑战吧！",
+    "还要继续吗，没有彩蛋了",
+    "好！SAI想和我继续玩就继续吧！",
+    "一直一直和我玩吧SAI！",
+    "哈哈！SAI！你破除不了我的记录的！"
+  ]; title.textContent=t[round-1];
+  applyScale(); // 切标题后重算缩放
+}
+function resetUIStable(){
+  restartBtn.style.display='none'; bombBtn.style.display='none';
+  upBtn.style.display = unlockedUp ? 'inline-block' : 'none';
+  document.documentElement.style.setProperty('--glow','#0ff'); changeGlowColor();
+  giftBannerArmed=false; // 新局不延续一次性文案
+}
+function nextRound(){
+  if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  clearModalQueue(); modalOverlay.style.display='none'; modalOpen=false;
+
+  if(!titleLocked){
+    // 第二局标题多停留一局（只生效一次）
+    if (round === 2 && !sessionStorage.getItem('title2Held')) {
+      sessionStorage.setItem('title2Held', '1');
+      // 保持 round=2 不递增
+    } else {
+      round++; 
+      if (round > 6) round = 1;
+      if (round === 5) { titleLocked = true; sessionStorage.setItem('titleLocked','1'); }
+    }
+  }
+  sessionStorage.setItem('round',round); changeTitleByRound(); applyScale();
+
+  showingFace=false; locked=false; paused=false;
+  bombUses=0; unlockedUp=false; smileShownThisRound=false;
+  upBtn.style.display='none'; resetGrid(); score=0;
+  giftBannerConsumed = false; // 新局可重新触发一次“哼哼…”
+  giftBannerArmed = false;    // 清掉上局点亮状态
+  current=newPiece(); nextPiece=newPiece(); drawNext(); draw();
+  updateScore(); refreshBombVisibility(); resetUIStable();
+
+  lastTime=performance.now(); dropCounter=0; update();
+}
+function update(t=0){
+  if(paused||locked||showingFace){ if(rafId){ cancelAnimationFrame(rafId); rafId=null; } return; }
+  const d=t-lastTime; lastTime=t; dropCounter+=d; if(dropCounter>dropInterval) drop();
+  draw(); refreshBombVisibility(); rafId=requestAnimationFrame(update);
+}
+function initGame(){
+  changeTitleByRound();changeGlowColor();resetGrid();score=0;
+  current=newPiece();nextPiece=newPiece();drawNext();updateLeaderboard();refreshBombVisibility();update();updateScore();
+  applyScale(); // 初始化后保底算一次
+}
+sessionStorage.removeItem('title2Held'); // 重置标题2多显示标记
+sessionStorage.removeItem('ultraPlayShown'); // 重置 1314 彩蛋，只在本次打开出现一次
+function startGame(){
+  sessionStorage.removeItem('title2Held'); // 再保险
+  sessionStorage.removeItem('ultraPlayShown'); // 再保险
+  startBtn.classList.add('fadeOut');
+  setTimeout(()=>{
+    startBtn.style.display='none';
+    gameArea.style.display='flex';
+    gameArea.classList.add('fadeIn');
+    applyScale(); // 开局时算一次缩放
+    initGame();
+  },700);
+}
+startBtn.onclick=startGame;
+</script>
+</body>
+</html>
