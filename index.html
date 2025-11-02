@@ -11,6 +11,8 @@ html,body{
   margin:0;height:100%;
   background:#000;color:#0ff;font-family:'Courier New',monospace;
   overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding-top: env(safe-area-inset-top, 0);           /* 顶部安全区（iOS 刘海） */
+  overscroll-behavior: contain;
 }
 h1#titleText{
   margin:10px 0 8px;font-size:1.8rem;letter-spacing:.5px;
@@ -53,7 +55,11 @@ canvas#next{
 }
 .btn{
   background:rgba(0,255,255,0.1);border:1px solid #0ff;color:#0ff;border-radius:6px;
-  padding:8px 10px;font-size:1.2rem;box-shadow:0 0 8px #0ff;min-width:36px;touch-action:none;
+  padding:8px 10px;font-size:1.2rem;box-shadow:0 0 8px #0ff;min-width:36px;
+    touch-action: none;
+  user-select: none;         /* 新增：标准属性，修掉警告 */
+  -webkit-user-select: none; /* iOS Safari 兼容 */
+  -webkit-touch-callout: none;
 }
 .btn:active{background:rgba(255,255,255,0.2);box-shadow:0 0 16px #ff0;}
 .hrwrap{width:var(--frameW);margin:6px auto 0;border-top:1px solid #0ff;opacity:.8;}
@@ -184,24 +190,42 @@ const modalOverlay=document.getElementById('modalOverlay'), modal=document.getEl
 const modalTitle=document.getElementById('modalTitle'), modalText=document.getElementById('modalText'), modalActions=document.getElementById('modalActions');
 const closeHint=document.getElementById('closeHint');
 
-/* === 自适应缩放（双轴） === */
+/* === 自适应缩放（考虑 safe-area 与真实视口） === */
+function getViewportSize() {
+  const vv = window.visualViewport;
+  return {
+    w: Math.floor((vv ? vv.width  : window.innerWidth)),
+    h: Math.floor((vv ? vv.height : window.innerHeight))
+  };
+}
 function applyScale(){
   const titleEl = document.getElementById('titleText');
   const scoreElWrap = document.getElementById('scorePanel');
-  const margin = 16;
-  const availW = Math.max(200, window.innerWidth  - margin);
-  const availH = Math.max(200, window.innerHeight - margin
-                          - (titleEl ? titleEl.getBoundingClientRect().height : 0)
-                          - (scoreElWrap ? scoreElWrap.getBoundingClientRect().height : 0));
+  const {w:vw, h:vh} = getViewportSize();
+
+  // 临时去掉缩放拿到真实宽高
   frameEl.style.transform = 'none';
   const rect = frameEl.getBoundingClientRect();
+
+  // 可用区域（减去标题/分数/安全区）
+  const titleH = titleEl ? titleEl.getBoundingClientRect().height : 0;
+  const scoreH = scoreElWrap ? scoreElWrap.getBoundingClientRect().height : 0;
+  const availW = Math.max(220, vw - 16);
+  const availH = Math.max(260, vh - 16 - titleH - scoreH);
+
+  // 允许更小的缩放以适配小屏
   const scaleW = availW / rect.width;
   const scaleH = availH / rect.height;
-  const scale  = Math.max(0.55, Math.min(1, Math.min(scaleW, scaleH)));
+  const scale  = Math.max(0.40, Math.min(1, Math.min(scaleW, scaleH)));
+
   frameEl.style.transformOrigin = 'top center';
   frameEl.style.transform = `scale(${scale})`;
+
+  // 回到顶部，避免标题被地址栏/刘海压住
+  window.scrollTo(0, 0);
 }
-window.addEventListener('orientationchange', applyScale);
+window.addEventListener('orientationchange', applyScale, {passive:true});
+window.addEventListener('resize', applyScale, {passive:true});
 
 /* 分数栏 */
 let high = parseInt(localStorage.getItem('highscore') || '0');
@@ -222,11 +246,11 @@ let showingFace=false;
 let titleLocked = sessionStorage.getItem('titleLocked')==='1';
 let firstFail = sessionStorage.getItem('firstFail')==='1';
 
-/* —— 新增：就绪态与统一检查 —— */
+/* —— 就绪态与统一检查 —— */
 let gameReady = false;
 const canPlay = () => gameReady && current;
 
-/* 送礼文案 */
+/* 送礼文案（“哼哼…”保留到下一块落地） */
 let giftBannerArmed=false;
 let giftBannerConsumed=false;
 
@@ -280,7 +304,7 @@ function collide(p=current){
 }
 function merge(){ current.shape.forEach((r,y)=>r.forEach((v,x)=>{ if(v) grid[current.y+y][current.x+x]=current.color; })); }
 
-/* ===== 旋转 & 镜像（水平墙踢，避免抽动） ===== */
+/* ===== 旋转 & 镜像（带墙踢，避免抽动） ===== */
 function rot90(s){return s[0].map((_,i)=>s.map(r=>r[i])).reverse();}
 function mirrorH(s){return s.map(r=>r.slice().reverse());}
 function buildShape(base,rot,mir){ let s=base.map(r=>r.slice()); for(let i=0;i<rot;i++) s=rot90(s); if(mir) s=mirrorH(s); return s; }
@@ -400,34 +424,34 @@ bombBtn.onclick=()=>{
   score+=50; refreshBombVisibility(); updateScore(); draw();
 };
 
-/* ===== 修正版触控/键盘输入（兼容手机点击） ===== */
+/* ===== 修正版触控/键盘输入（点击=一步；长按连发；含 click 兜底） ===== */
 function pressRepeat(el, onFire, {initialDelay=250, repeatEvery=120} = {}) {
-  let timer = null, repeater = null, fired = false;
+  let timer = null, repeater = null;
+
+  const fireOnce = () => withCooldown(onFire);
+
   const start = (ev) => {
-    ev.preventDefault();
-    ev.stopPropagation();
-    fired = false;
-    // 立即触发一次
-    withCooldown(onFire);
-    // 延迟触发连续模式
+    ev.preventDefault(); ev.stopPropagation();
+    fireOnce(); // 先来一次
     timer = setTimeout(() => {
-      fired = true;
-      repeater = setInterval(() => withCooldown(onFire), repeatEvery);
+      repeater = setInterval(fireOnce, repeatEvery);
     }, initialDelay);
   };
+
   const end = (ev) => {
     if (ev) { ev.preventDefault(); ev.stopPropagation(); }
-    clearTimeout(timer);
-    if (repeater) clearInterval(repeater);
-    timer = null;
-    repeater = null;
+    clearTimeout(timer); timer = null;
+    if (repeater) { clearInterval(repeater); repeater = null; }
   };
-  el.style.touchAction = "none"; // 关键：防止移动端吞 pointerdown
-  el.addEventListener("pointerdown", start, { passive: false });
-  el.addEventListener("pointerup", end, { passive: false });
-  el.addEventListener("pointerleave", end, { passive: false });
-  el.addEventListener("pointercancel", end, { passive: false });
+
+  el.style.touchAction = 'none';
+  el.addEventListener('pointerdown', start, {passive:false});
+  el.addEventListener('pointerup', end, {passive:false});
+  el.addEventListener('pointerleave', end, {passive:false});
+  el.addEventListener('pointercancel', end, {passive:false});
+  el.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); fireOnce(); }, {passive:false});
 }
+
 const btnLeft=document.getElementById('left');
 const btnRight=document.getElementById('right');
 const btnDown=document.getElementById('down');
@@ -489,7 +513,7 @@ function drawFaceMask(mask, color){
 /* —— 笑脸预览：1.8s —— */
 function showSmilePreview(usedTen){
   gameReady = false;               // 显示表情期间禁止输入
-  drawFaceMask(SMILE_MASK,'#ff8c00');
+  drawFaceMask(SMILE_MASK,'#ff8c00'); // 南瓜橙
   setTimeout(()=>{
     clearModalQueue(); modalOverlay.style.display='none'; modalOpen=false;
     enqueueModal({
@@ -504,7 +528,7 @@ function showSmilePreview(usedTen){
 /* —— 哭脸预览：1.8s —— */
 function showCryPreview(){
   gameReady = false;
-  drawFaceMask(CRY_MASK,'#002fa7');
+  drawFaceMask(CRY_MASK,'#002fa7'); // 克莱因蓝
   setTimeout(()=>{
     clearModalQueue(); modalOverlay.style.display='none'; modalOpen=false;
     enqueueModal({
