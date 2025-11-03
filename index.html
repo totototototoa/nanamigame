@@ -506,6 +506,40 @@ rotateBtn.addEventListener('pointerup', e=>{
   if(!rotDidLong) doRotate();
 },{passive:false});
 rotateBtn.addEventListener('pointercancel', ()=>{ clearTimeout(rotTimer); });
+/* ===== 键盘控制：方向键 + WASD + 空格 + 可选上移 ===== */
+const keyMap = {
+  left:  ['ArrowLeft','a','A','h','H'],
+  right: ['ArrowRight','d','D','l','L'],
+  down:  ['ArrowDown','s','S','j','J'],
+  rotate:['ArrowUp','w','W',' '],      // 旋转：↑ / W / 空格
+  up1:   ['e','E','PageUp']            // 上移一格：E / PageUp（需解锁）
+};
+
+document.addEventListener('keydown', (e)=>{
+  if(!canPlay()) return;
+
+  // 避免页面滚动或空格触发按钮聚焦
+  if (['ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+
+  if (keyMap.left.includes(e.key)) {
+    withCooldown(()=>{ current.x--; if (collide()) current.x++; });
+  } else if (keyMap.right.includes(e.key)) {
+    withCooldown(()=>{ current.x++; if (collide()) current.x--; });
+  } else if (keyMap.down.includes(e.key)) {
+    withCooldown(()=> drop());
+  } else if (keyMap.rotate.includes(e.key)) {
+    withCooldown(()=> doRotate());
+  } else if (keyMap.up1.includes(e.key)) {
+    withCooldown(()=>{
+      if (unlockedUp && !paused && !locked && !showingFace) {
+        current.y = Math.max(0, current.y - 1); // 顶部不越界
+      }
+    });
+  } else if (e.key === 'q' || e.key === 'Q') {
+    // 可选：Q=镜像一次
+    withCooldown(()=> doMirror());
+  }
+});
 
 /* ===== 暂停与重新开始 ===== */
 pauseBtn.onclick=()=>{ if(!canPlay()) return; paused=!paused;pauseBtn.textContent=paused?'▶ 继续':'⏸ 暂停';if(!paused)update();};
@@ -700,4 +734,5 @@ startBtn.onclick=startGame;
 </script>
 </body>
 </html>
+
 
