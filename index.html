@@ -107,6 +107,42 @@ canvas#next{
 #closeHint .box{border:1px solid #0ff;border-radius:12px;padding:16px 20px;background:#021319cc;box-shadow:0 0 18px #0ff;}
 #closeHint a{color:#0ff;text-decoration:underline}
 #starfield{position:fixed;inset:0;pointer-events:none;z-index:-1;}
+/* ==== 手机端布局补丁（≤420px）==== */
+@media (max-width: 420px) {
+  html, body {
+    justify-content: flex-start;
+  }
+  #titleText {
+    margin-top: calc(env(safe-area-inset-top, 0px) + 6px);
+    font-size: 1.7rem;
+  }
+  #container{
+    grid-template-columns: 200px 96px;
+    column-gap: 8px;
+    row-gap: 8px;
+  }
+  canvas#next { width:70px; height:70px; }
+  #pauseButton,#restartButton,#bombButton { width:96px; }
+
+  .controls{
+    width: var(--frameW);
+    gap: 10px;
+    margin: 8px 0 0;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+  .btn{
+    min-width: 54px;
+    min-height: 54px;
+    padding: 10px 12px;
+    font-size: 1.3rem;
+    border-radius: 10px;
+  }
+
+  .hrwrap{ width:var(--frameW); margin: 6px auto 4px; }
+  #leaderboard{ width:var(--frameW); margin: 4px auto 10px; }
+  #leaderboard h2{ font-size: .95rem; margin: 2px 0 4px; }
+}
 </style>
 </head>
 <body>
@@ -212,24 +248,37 @@ function getViewportSize() {
            h: Math.floor((vv ? vv.height : window.innerHeight)) };
 }
 function applyScale(){
-  const titleEl = document.getElementById('titleText');
-  const scoreElWrap = document.getElementById('scorePanel');
-  const {w:vw, h:vh} = getViewportSize();
+  const titleEl  = document.getElementById('titleText');
+  const scoreBar = document.getElementById('scorePanel');
 
-  frameEl.style.transform = 'none';
-  const rect = frameEl.getBoundingClientRect();
+  // 用 visualViewport 尺寸，兼容地址栏/键盘变化
+  const vv = window.visualViewport;
+  const vw = Math.floor(vv ? vv.width  : window.innerWidth);
+  const vh = Math.floor(vv ? vv.height : window.innerHeight);
 
-  const titleH = titleEl ? titleEl.getBoundingClientRect().height : 0;
-  const scoreH = scoreElWrap ? scoreElWrap.getBoundingClientRect().height : 0;
-  const availW = Math.max(220, vw - 16);
-  const availH = Math.max(260, vh - 16 - titleH - scoreH);
+  // 动态设置主框宽度，尽量占满屏宽
+  const frameW = Math.min(380, vw - 20);      // 手机上更宽（原来 322）
+  document.documentElement.style.setProperty('--frameW', frameW + 'px');
 
-  const scaleW = availW / rect.width;
+  // 去掉缩放取实际高度
+  const frame = document.getElementById('frame');
+  frame.style.transform = 'none';
+  const rect = frame.getBoundingClientRect();
+
+  // 可用高度：减标题/分数/一点边距
+  const titleH = titleEl  ? titleEl.getBoundingClientRect().height  : 0;
+  const scoreH = scoreBar ? scoreBar.getBoundingClientRect().height : 0;
+  const availH = Math.max(260, vh - 12 - titleH - scoreH);
+
+  // 计算缩放：优先放大，最低别小于 0.75（看起来更大）
   const scaleH = availH / rect.height;
-  const scale  = Math.max(0.40, Math.min(1, Math.min(scaleW, scaleH)));
+  const scaleW = (vw - 8) / rect.width;
+  const scale  = Math.max(0.75, Math.min(1, Math.min(scaleW, scaleH)));
 
-  frameEl.style.transformOrigin = 'top center';
-  frameEl.style.transform = `scale(${scale})`;
+  frame.style.transformOrigin = 'top center';
+  frame.style.transform = `scale(${scale})`;
+
+  // 回到顶部，保证标题露出来
   window.scrollTo(0, 0);
 }
 window.addEventListener('orientationchange', applyScale, {passive:true});
@@ -758,6 +807,7 @@ if (window.visualViewport) {
 </script>
 </body>
 </html>
+
 
 
 
