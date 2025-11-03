@@ -567,7 +567,7 @@ function proceedGameOver(){
   if (!firstFail) {
     firstFail = true; sessionStorage.setItem('firstFail','1');
     enqueueModal({
-      title:'提示', text:'还要继续吗？',
+      title:'提示', text:'哈哈！我可不会这么轻易放你离开！继续吧！',
       buttons:[{label:'是', onClick:()=> nextRound()},
                {label:'是', onClick:()=> nextRound()}]
     });
@@ -700,3 +700,4 @@ startBtn.onclick=startGame;
 </script>
 </body>
 </html>
+
