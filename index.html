@@ -186,6 +186,51 @@ canvas#next{
     margin: 4px auto 12px;
   }
 }
+  /* === 强制桌面样式：只要 body 上有 .desktop 就生效 === */
+body.desktop #frame{
+  transform: none !important;                 /* 桌面不缩放 */
+}
+body.desktop{
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+/* 控制区一排居中 */
+body.desktop .controls{
+  width: 240px !important;
+  margin: 12px auto 0 !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+/* 按钮方形、绝对居中显示图标 */
+body.desktop .btn{
+  width: 48px !important;
+  height: 48px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 8px #0ff !important;
+  font-size: 1.2rem !important;
+}
+
+/* 分割线与排行榜与画面宽度对齐 */
+body.desktop .hrwrap,
+body.desktop #leaderboard{
+  width: var(--frameW) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* 面板宽度：桌面稍宽点更顺眼 */
+body.desktop :root{
+  --frameW: 340px;
+}
 </style>
 </head>
 <body>
@@ -292,7 +337,7 @@ function getViewportSize() {
 }
 function applyScale(){
   const {w:vw, h:vh} = getViewportSize();
-
+  document.body.classList.toggle('desktop', vw >= 800);
   // === 桌面：恢复原样、不缩放 ===
   if (vw >= 800) {
     frameEl.style.transform = 'none';
@@ -851,6 +896,7 @@ if (window.visualViewport) {
 </script>
 </body>
 </html>
+
 
 
 
