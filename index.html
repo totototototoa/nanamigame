@@ -143,22 +143,47 @@ canvas#next{
   #leaderboard{ width:var(--frameW); margin: 4px auto 10px; }
   #leaderboard h2{ font-size: .95rem; margin: 2px 0 4px; }
 }
-  /* ==== 桌面兜底（≥800px）：恢复原始布局与置中 ==== */
+/* ==== 桌面端（≥800px）布局与按钮补丁 ==== */
 @media (min-width: 800px) {
-  html, body { justify-content: center; }
-  :root{ --frameW: 322px; }
-  .controls{
-    width: 200px;
-    gap: 10px;
-    margin: 0 auto;
-    flex-wrap: nowrap;
-    justify-content: center;
+  html, body {
+    justify-content: center;      /* 整体垂直居中 */
+    align-items: center;
   }
-  .btn{
-    min-width: 36px;
-    min-height: 36px;
+
+  :root {
+    --frameW: 340px;              /* 桌面端稍微放宽画面 */
+  }
+
+  /* 控制按钮区域保持一行水平居中 */
+  .controls {
+    width: 220px;
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin: 12px auto 0;
+    flex-wrap: nowrap;
+  }
+
+  /* 恢复方形比例、对称光晕 */
+  .btn {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px;
     font-size: 1.2rem;
-    border-radius: 6px;
+    border-radius: 8px;
+    box-shadow: 0 0 8px #0ff;
+  }
+
+  /* 排行榜与分割线更紧凑 */
+  .hrwrap {
+    width: var(--frameW);
+    margin: 8px auto 4px;
+  }
+  #leaderboard {
+    width: var(--frameW);
+    margin: 4px auto 12px;
   }
 }
 </style>
@@ -826,6 +851,7 @@ if (window.visualViewport) {
 </script>
 </body>
 </html>
+
 
 
 
