@@ -395,12 +395,13 @@ function drop(){
     current.y--;
     merge();clearLines();
 
-    if (giftBannerArmed && score >= 50 && score < 100) {
-      giftBannerArmed = false;
-      giftBannerConsumed = true;
-      leaderboard[0].name = '七海龙水';
-      updateLeaderboard();
-    }
+// 方块落地：如“哼哼…”处于保持态 → 无条件复位（避免跨过 100 后仍然悬挂）
+if (giftBannerArmed) {
+  giftBannerArmed = false;
+  giftBannerConsumed = true;
+  refreshLeaderNameByScore();   // 让优先级逻辑统一生效
+  updateLeaderboard();
+}
 
     current=nextPiece;nextPiece=newPiece();drawNext();
     if(collide())return gameOver();
@@ -734,5 +735,6 @@ startBtn.onclick=startGame;
 </script>
 </body>
 </html>
+
 
 
